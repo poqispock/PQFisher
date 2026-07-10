@@ -1,0 +1,347 @@
+#NoEnv
+#SingleInstance Force
+SetWorkingDir %A_ScriptDir%
+CoordMode, Pixel, Screen
+CoordMode, Mouse, Screen
+
+toggle := false
+
+fishCount := 0
+jumpEvery := 50
+
+startTime := 0
+;=========================
+; GUI
+;=========================
+
+Gui, +AlwaysOnTop -Resize -MaximizeBox
+Gui, Color, 171717
+Gui, Margin, 0,0
+Gui, Font, s9, Segoe UI
+
+;=========================
+; Header
+;=========================
+
+Gui, Add, Progress, x0 y0 w450 h6 c3AA8FF Background3AA8FF Disabled
+Gui, Font, s18 Bold cFFFFFF, Segoe UI
+Gui, Add, Text, x20 y18 w410 Center, PQFisher
+Gui, Font, s9 c7DAFFF, Segoe UI
+Gui, Add, Text, x20 y48 w410 Center, Made by poq
+
+;=========================
+; Divider Lines
+;=========================
+
+Gui, Add, Progress, x15 y75  w420 h2 c303030 Background303030 Disabled
+Gui, Add, Progress, x15 y165 w420 h2 c303030 Background303030 Disabled
+Gui, Add, Progress, x15 y295 w420 h2 c303030 Background303030 Disabled
+Gui, Add, Progress, x15 y390 w420 h2 c303030 Background303030 Disabled
+Gui, Add, Progress, x15 y455 w420 h2 c303030 Background303030 Disabled
+
+;=========================
+; STATUS PANEL
+;=========================
+
+Gui, Font, s10 Bold c4EA3FF
+Gui, Add, Text, x20 y82, STATUS
+Gui, Add, Text, x20 y172, STATISTICS
+Gui, Add, Text, x20 y302, SETTINGS
+Gui, Add, Text, x20 y462, HOTKEYS
+Gui, Font, s10 Bold cFFFFFF
+Gui, Add, Text, x60 y110, Status
+Gui, Font, s10 Bold cFF4040
+Gui, Add, Text, x120 y110 w120 vStatusText, STOPPED
+Gui, Font, s10 Bold cFFFFFF
+Gui, Add, Text, x250 y110, Runtime
+Gui, Font, s10 c00D4FF
+Gui, Add, Text, x325 y110 w90 vRuntimeText, 00:00:00
+
+;=========================
+; STATISTICS
+;=========================
+
+Gui, Font, s10 Bold cFFFFFF
+Gui, Add, Text, x40 y205, Fish Caught
+Gui, Font, s22 Bold c4EA3FF
+Gui, Add, Text, x40 y225 w120 Center vFishCounter, 0
+Gui, Font, s10 Bold cFFFFFF
+Gui, Add, Text, x250 y205, Fish / Hour
+Gui, Font, s22 Bold c4EA3FF
+Gui, Add, Text, x250 y225 w120 Center vFishPerHour, 0
+
+;=========================
+; SETTINGS
+;=========================
+
+Gui, Font, s10 Bold cFFFFFF
+Gui, Add, Text, x35 y338, Sell Every
+Gui, Font, s10 c000000
+Gui, Add, Edit, x120 y334 w60 h24 Number vJumpEveryInput, 10
+Gui, Font, s10 cFFFFFF
+Gui, Add, Text, x190 y338, fish
+
+;=========================
+; BUTTONS
+;=========================
+
+Gui, Font, s11 Bold
+Gui, Add, Button, x35 y400 w170 h45 gStartScript, Start
+Gui, Add, Button, x245 y400 w170 h45 gStopScript, Stop
+
+;=========================
+; HOTKEYS
+;=========================
+
+Gui, Font, s10 cFFFFFF
+Gui, Add, Text, x35 y490, F1
+Gui, Font, c4EA3FF
+Gui, Add, Text, x70 y490, Start Macro
+Gui, Font, cFFFFFF
+Gui, Add, Text, x35 y515, F2
+Gui, Font, c4EA3FF
+Gui, Add, Text, x70 y515, Stop Macro
+Gui, Font, cFFFFFF
+Gui, Add, Text, x35 y540, F3
+Gui, Font, c4EA3FF
+Gui, Add, Text, x70 y540, Exit
+
+;=========================
+; Footer
+;=========================
+
+Gui, Font, s8 c777777
+Gui, Add, Text, x20 y575 w410 Center, Version 1.0
+Gui, Show, w450 h600, Auto Fisher
+
+Return
+
+; === Hotkeys ===
+F1::Gosub, StartScript
+F2::Gosub, StopScript
+F3::Gosub, ExitScript
+
+; === Start Script ===
+StartScript:
+if (!toggle) {
+    toggle := true
+
+    fishCount := 0
+    GuiControl,, FishCounter, 0
+
+    GuiControlGet, jumpEvery,, JumpEveryInput
+    if (jumpEvery < 1)
+        GuiControl,, JumpEveryInput, 1
+
+startTime := A_TickCount
+
+GuiControl,+c55FF55, StatusDot
+GuiControl,, StatusDot, O
+
+GuiControl,+c55FF55, StatusText
+GuiControl,, StatusText, RUNNING
+
+SetTimer, UpdateStats, 1000
+SetTimer, DoMouseMove, 100
+
+}
+Return
+
+; === Stop Script ===
+StopScript:
+toggle := false
+GuiControl,+cFF4040, StatusDot
+GuiControl,, StatusDot, O
+
+GuiControl,+cFF4040, StatusText
+GuiControl,, StatusText, STOPPED
+
+SetTimer, UpdateStats, Off
+SetTimer, DoMouseMove, Off
+ToolTip
+Return
+
+; === Main Fishing Loop ===
+DoMouseMove:
+if (toggle) {
+    Loop {
+        if (!toggle)
+            break
+
+        MouseMove, 850, 830, 3
+        Sleep 300
+        MouseClick, Left
+        Sleep 300
+        MouseMove, 850, 950, 3
+
+        BarColor := 0
+
+        ; Check for white pixel loop
+        Loop {
+            PixelGetColor, color, 1176, 836, RGB
+            if (color = 0xFFFFFF) {
+                MouseMove, 950, 880, 3
+
+                ; Find new bar color
+                Sleep 10
+                barx := 946, bary := 764
+                PixelGetColor, barcolor, %barx%, %bary%, RGB
+                BarColor := barcolor
+
+                SetTimer, DoMouseMove, Off
+                break
+            }
+            Sleep, 100
+            if (!toggle)
+                Return
+        }
+
+        ; PixelSearch with 9-second timeout
+        startTime := A_TickCount
+        Loop {
+            if (!toggle)
+                break
+            if (A_TickCount - startTime > 9000)
+                break
+
+            ErrorLevel := 0
+            PixelSearch, FoundX, FoundY, 757, 762, 1161, 782, BarColor, 5, Fast RGB
+
+            if (ErrorLevel != 0) {
+                MouseClick, Left
+                PixelGetColor, color, 1139, 762, RGB
+            }
+        }
+
+Sleep 300
+MouseMove, 1113, 342, 3
+Sleep 300
+MouseClick, Left
+Sleep 300
+
+fishCount++
+GuiControl,, FishCounter, %fishCount%
+
+GuiControlGet, jumpEvery,, JumpEveryInput
+
+if (jumpEvery < 1)
+    jumpEvery := 1
+
+if (Mod(fishCount, jumpEvery) = 0)
+{
+    Gosub, WalkingAction
+}
+    }
+}
+Return
+
+
+;=========================
+; Live Statistics
+;=========================
+
+UpdateStats:
+
+elapsed := Floor((A_TickCount - startTime) / 1000)
+
+hours := Floor(elapsed / 3600)
+minutes := Floor(Mod(elapsed,3600) / 60)
+seconds := Mod(elapsed,60)
+
+runtime :=
+(
+Format("{:02}:{:02}:{:02}", hours, minutes, seconds)
+)
+
+GuiControl,, RuntimeText, %runtime%
+
+if (elapsed > 0)
+{
+    fishPerHour := Round(fishCount / (elapsed / 3600))
+}
+else
+{
+    fishPerHour := 0
+}
+
+GuiControl,, FishPerHour, %fishPerHour%
+
+Return
+
+; === Walking Action ===
+WalkingAction:
+
+Send, /
+Sleep, 100
+Mousemove, 138, 32, 3
+Sleep, 50
+Click
+Sleep, 100
+
+Mousemove, 35, 460, 5
+Sleep, 300
+Click
+Sleep, 300
+Mousemove, 385, 130, 5
+Sleep, 300
+Click
+Sleep, 300
+Send, {s down}
+Sleep, 1000
+Send, {s up}
+Sleep, 100
+Send, {w down}
+Sleep, 200
+Send, {w up}
+Sleep, 300
+Send, {Space down}
+Send, {s down}
+Send, {Space up}
+Sleep, 600
+Send, {s up}
+Send, {d down}
+Sleep, 100
+Send, {d up}
+Send, {s down}
+Sleep, 700
+Send, {s up}
+
+Send, e
+Sleep, 2500
+Mousemove, 950, 940, 5
+Sleep, 300
+Click
+Sleep, 1000
+
+Loop, 25
+{
+Mousemove, 825, 400, 5
+Sleep, 50
+Click
+Sleep, 50
+Mousemove, 675, 800, 3
+Sleep, 50
+Click
+Sleep, 50
+Mousemove, 805, 620, 3
+Sleep, 50
+Click
+Sleep, 500
+}
+
+Mousemove, 1460, 267, 5
+Sleep, 300
+Click
+Sleep, 1000
+Send, {w down}
+Sleep 1500
+Send, {w up}
+Sleep, 100
+
+
+Return
+
+; === Exit script ===
+GuiClose:
+ExitScript:
+ExitApp
